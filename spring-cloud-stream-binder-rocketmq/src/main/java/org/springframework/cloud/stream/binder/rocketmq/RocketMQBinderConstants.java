@@ -33,4 +33,16 @@ public interface RocketMQBinderConstants {
 
 	String DEFAULT_GROUP = "rocketmq_binder_default_group_name";
 
+	/**
+	 * Header key
+	 */
+	String ROCKET_QUEUE_SELECT_KEY = "QUEUE_SELECT_KEY";
+
+	/**
+	 * Header key,Skip {@link org.apache.rocketmq.client.producer.MessageQueueSelector MessageQueueSelector} and select directly
+	 *
+	 * @see org.springframework.cloud.stream.binder.rocketmq.provisioning.QueueOverrideMessageQueueSelector
+	 */
+	String ROCKET_QUEUE_INDEX_OVERRIDE = "QUEUE_INDEX_OVERRIDE";
+
 }

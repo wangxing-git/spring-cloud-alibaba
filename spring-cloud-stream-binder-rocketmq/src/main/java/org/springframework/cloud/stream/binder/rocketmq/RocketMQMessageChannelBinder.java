@@ -16,12 +16,11 @@
 
 package org.springframework.cloud.stream.binder.rocketmq;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.rocketmq.acl.common.AclClientRPCHook;
 import org.apache.rocketmq.acl.common.SessionCredentials;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.MessageQueueSelector;
 import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.spring.autoconfigure.RocketMQProperties;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
@@ -40,6 +39,7 @@ import org.springframework.cloud.stream.binder.rocketmq.properties.RocketMQBinde
 import org.springframework.cloud.stream.binder.rocketmq.properties.RocketMQConsumerProperties;
 import org.springframework.cloud.stream.binder.rocketmq.properties.RocketMQExtendedBindingProperties;
 import org.springframework.cloud.stream.binder.rocketmq.properties.RocketMQProducerProperties;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.QueueOverrideMessageQueueSelector;
 import org.springframework.cloud.stream.binder.rocketmq.provisioning.RocketMQTopicProvisioner;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
@@ -52,7 +52,10 @@ import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.MessagingException;
 import org.springframework.util.StringUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * @author <a href="mailto:fangjian0423@gmail.com">Jim</a>
@@ -148,6 +151,19 @@ public class RocketMQMessageChannelBinder extends
 				producer.setMaxMessageSize(
 						producerProperties.getExtension().getMaxMessageSize());
 				rocketMQTemplate.setProducer(producer);
+				rocketMQTemplate.setMessageQueueSelector(
+						Optional.ofNullable(producerProperties.getExtension().getQueueSelectorName())
+								.filter(queueSelectorName -> !StringUtils.isEmpty(queueSelectorName))
+								.map(queueSelectorName ->
+										Stream.of(getApplicationContext().getBeanNamesForType(MessageQueueSelector.class))
+												.filter(beanName -> beanName.equals(queueSelectorName))
+												.map(beanName -> getApplicationContext().getBean(beanName, MessageQueueSelector.class))
+												.findFirst()
+												.orElseThrow(() -> new RuntimeException("The queue selector bean of name '" + queueSelectorName + "' not found. Please check if the name is correct and if the bean type is MessageQueueSelector."))
+								)
+								.map(QueueOverrideMessageQueueSelector::new)
+								.orElseGet(() -> new QueueOverrideMessageQueueSelector(rocketMQTemplate.getMessageQueueSelector()))
+				);
 			}
 
 			RocketMQMessageHandler messageHandler = new RocketMQMessageHandler(

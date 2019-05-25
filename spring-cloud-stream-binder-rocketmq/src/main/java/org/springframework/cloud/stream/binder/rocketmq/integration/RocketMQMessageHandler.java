@@ -16,8 +16,6 @@
 
 package org.springframework.cloud.stream.binder.rocketmq.integration;
 
-import java.util.Optional;
-
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
@@ -40,6 +38,8 @@ import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.support.ErrorMessage;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
+
+import java.util.Optional;
 
 /**
  * @author <a href="mailto:fangjian0423@gmail.com">Jim</a>
@@ -145,36 +145,54 @@ public class RocketMQMessageHandler extends AbstractMessageHandler implements Li
 				catch (Exception e) {
 					// ignore
 				}
+				Object queueSelectKey = message.getHeaders().get(RocketMQBinderConstants.ROCKET_QUEUE_SELECT_KEY);
+				Object queueIndexOverride = message.getHeaders().get(RocketMQBinderConstants.ROCKET_QUEUE_INDEX_OVERRIDE);
+				boolean needSelectQueue = queueSelectKey != null || queueIndexOverride != null;
 				if (sync) {
-					sendRes = rocketMQTemplate.syncSend(topicWithTags.toString(), message,
-							rocketMQTemplate.getProducer().getSendMsgTimeout(),
-							delayLevel);
+					if (!needSelectQueue) {
+						sendRes = rocketMQTemplate.syncSend(topicWithTags.toString(), message,
+								rocketMQTemplate.getProducer().getSendMsgTimeout(),
+								delayLevel);
+					} else {
+						sendRes = rocketMQTemplate.syncSendOrderly(topicWithTags.toString(), message,
+								queueSelectKey == null ? null : queueSelectKey.toString(),
+								rocketMQTemplate.getProducer().getSendMsgTimeout());
+					}
 					log.debug("sync send to topic " + topicWithTags + " " + sendRes);
 				}
 				else {
-					rocketMQTemplate.asyncSend(topicWithTags.toString(), message,
-							new SendCallback() {
-								@Override
-								public void onSuccess(SendResult sendResult) {
-									log.debug("async send to topic " + topicWithTags + " "
-											+ sendResult);
-								}
+					SendCallback sendCallback = new SendCallback() {
+						@Override
+						public void onSuccess(SendResult sendResult) {
+							log.debug("async send to topic " + topicWithTags + " "
+									+ sendResult);
+						}
 
-								@Override
-								public void onException(Throwable e) {
-									log.error(
-											"RocketMQ Message hasn't been sent. Caused by "
-													+ e.getMessage());
-									if (getSendFailureChannel() != null) {
-										getSendFailureChannel().send(
-												RocketMQMessageHandler.this.errorMessageStrategy
-														.buildErrorMessage(
-																new MessagingException(
-																		message, e),
-																null));
-									}
-								}
-							});
+						@Override
+						public void onException(Throwable e) {
+							log.error(
+									"RocketMQ Message hasn't been sent. Caused by "
+											+ e.getMessage());
+							if (getSendFailureChannel() != null) {
+								getSendFailureChannel().send(
+										RocketMQMessageHandler.this.errorMessageStrategy
+												.buildErrorMessage(
+														new MessagingException(
+																message, e),
+														null));
+							}
+						}
+					};
+					if (!needSelectQueue) {
+						rocketMQTemplate.asyncSend(topicWithTags.toString(), message, sendCallback);
+					} else {
+						rocketMQTemplate.asyncSendOrderly(
+								topicWithTags.toString(),
+								message,
+								queueSelectKey == null ? null : queueSelectKey.toString(),
+								sendCallback
+						);
+					}
 				}
 			}
 			if (sendRes != null && !sendRes.getSendStatus().equals(SendStatus.SEND_OK)) {
@@ -229,4 +247,5 @@ public class RocketMQMessageHandler extends AbstractMessageHandler implements Li
 	public void setSync(boolean sync) {
 		this.sync = sync;
 	}
+
 }
