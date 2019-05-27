@@ -28,7 +28,7 @@ public class RocketMQBindingRegistry {
     public void registerRocketMQBinding(String beanName, Class beanType, RocketMQBinding rocketMQBinding) {
         Stream.of(rocketMQBinding.bindingName())
                 .forEach(bindingName -> {
-                    RocketMQBindingMetadata rocketMQBindingMetadata = rocketMqBindingMetadataMap.get(beanName);
+                    RocketMQBindingMetadata rocketMQBindingMetadata = rocketMqBindingMetadataMap.get(bindingName);
                     if (rocketMQBindingMetadata == null) {
                         rocketMQBindingMetadata = new RocketMQBindingMetadata();
                         rocketMQBindingMetadata.setBindingName(bindingName);
