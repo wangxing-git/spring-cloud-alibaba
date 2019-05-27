@@ -75,11 +75,6 @@ public class RocketMQProducerProperties {
 	 */
 	private boolean retryNextServer = false;
 
-	/**
-	 * The name of the {@link org.apache.rocketmq.client.producer.MessageQueueSelector MessageQueueSelector} bean
-	 */
-	private String queueSelectorName;
-
 	public String getGroup() {
 		return group;
 	}
@@ -166,14 +161,6 @@ public class RocketMQProducerProperties {
 
 	public void setRetryNextServer(boolean retryNextServer) {
 		this.retryNextServer = retryNextServer;
-	}
-
-	public String getQueueSelectorName() {
-		return queueSelectorName;
-	}
-
-	public void setQueueSelectorName(String queueSelectorName) {
-		this.queueSelectorName = queueSelectorName == null ? null : queueSelectorName.trim();
 	}
 
 }

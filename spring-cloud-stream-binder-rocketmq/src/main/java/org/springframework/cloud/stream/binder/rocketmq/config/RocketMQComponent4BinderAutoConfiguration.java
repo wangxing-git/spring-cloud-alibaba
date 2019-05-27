@@ -16,6 +16,7 @@
 
 package org.springframework.cloud.stream.binder.rocketmq.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.rocketmq.acl.common.AclClientRPCHook;
 import org.apache.rocketmq.acl.common.SessionCredentials;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
@@ -24,16 +25,20 @@ import org.apache.rocketmq.spring.config.RocketMQConfigUtils;
 import org.apache.rocketmq.spring.config.RocketMQTransactionAnnotationProcessor;
 import org.apache.rocketmq.spring.config.TransactionHandlerRegistry;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.MergedBeanDefinitionPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cloud.stream.binder.rocketmq.RocketMQBinderConstants;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.binding.RocketMQBindingBeanDefinitionPostProcessor;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.binding.registry.RocketMQBindingRegistry;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.binding.registry.processor.MessageQueueSelectorRegistryProcessor;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.binding.registry.processor.RocketMQBindingRegistryProcessor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.util.StringUtils;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * @author <a href="mailto:fangjian0423@gmail.com">Jim</a>
@@ -97,6 +102,24 @@ public class RocketMQComponent4BinderAutoConfiguration {
 	public static RocketMQTransactionAnnotationProcessor transactionAnnotationProcessor(
 			TransactionHandlerRegistry transactionHandlerRegistry) {
 		return new RocketMQTransactionAnnotationProcessor(transactionHandlerRegistry);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public static MessageQueueSelectorRegistryProcessor messageQueueSelectorRocketMQBindingRegistry() {
+		return new MessageQueueSelectorRegistryProcessor();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public static RocketMQBindingRegistry rocketMQBindingRegistry(ObjectProvider<RocketMQBindingRegistryProcessor> rocketMQBindingRegistryProcessors) {
+		return new RocketMQBindingRegistry(rocketMQBindingRegistryProcessors);
+	}
+
+	@Bean
+	@ConditionalOnMissingBean(name = "rocketMqBindingMergedBeanDefinitionPostProcessor")
+	public static MergedBeanDefinitionPostProcessor rocketMqBindingMergedBeanDefinitionPostProcessor(RocketMQBindingRegistry rocketMQBindingRegistry) {
+		return new RocketMQBindingBeanDefinitionPostProcessor(rocketMQBindingRegistry);
 	}
 
 }

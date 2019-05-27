@@ -28,13 +28,16 @@ public class QueueOverrideMessageQueueSelector implements MessageQueueSelector {
 
     @Override
     public MessageQueue select(List<MessageQueue> mqs, Message msg, Object arg) {
-        String override = msg.getProperty(RocketMQBinderConstants.ROCKET_QUEUE_INDEX_OVERRIDE);
+        String override = msg.getProperties().remove(RocketMQBinderConstants.ROCKET_QUEUE_INDEX_OVERRIDE);
         if (StringUtils.isNotBlank(override)) {
             int queueIndex = 0;
             try {
                 queueIndex = Integer.parseInt(override);
             } catch (NumberFormatException nfe) {
                 logger.warn("the '" + RocketMQBinderConstants.ROCKET_QUEUE_INDEX_OVERRIDE + "' header is not a int number! use the default value of 0.");
+            }
+            if (queueIndex < 0) {
+                throw new IllegalArgumentException("queueIndex must >= 0");
             }
             return mqs.get(queueIndex % mqs.size());
         }

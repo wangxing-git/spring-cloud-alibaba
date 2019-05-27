@@ -41,11 +41,14 @@ import org.springframework.cloud.stream.binder.rocketmq.properties.RocketMQExten
 import org.springframework.cloud.stream.binder.rocketmq.properties.RocketMQProducerProperties;
 import org.springframework.cloud.stream.binder.rocketmq.provisioning.QueueOverrideMessageQueueSelector;
 import org.springframework.cloud.stream.binder.rocketmq.provisioning.RocketMQTopicProvisioner;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.binding.RocketMQBindingMetadata;
+import org.springframework.cloud.stream.binder.rocketmq.provisioning.binding.registry.RocketMQBindingRegistry;
 import org.springframework.cloud.stream.provisioning.ConsumerDestination;
 import org.springframework.cloud.stream.provisioning.ProducerDestination;
 import org.springframework.integration.StaticMessageHeaderAccessor;
 import org.springframework.integration.acks.AcknowledgmentCallback;
 import org.springframework.integration.acks.AcknowledgmentCallback.Status;
+import org.springframework.integration.channel.AbstractMessageChannel;
 import org.springframework.integration.core.MessageProducer;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.MessageHandler;
@@ -87,8 +90,9 @@ public class RocketMQMessageChannelBinder extends
 
 	@Override
 	protected MessageHandler createProducerMessageHandler(ProducerDestination destination,
-			ExtendedProducerProperties<RocketMQProducerProperties> producerProperties,
-			MessageChannel errorChannel) throws Exception {
+														  ExtendedProducerProperties<RocketMQProducerProperties> producerProperties,
+														  MessageChannel channel,
+														  MessageChannel errorChannel) throws Exception {
 		if (producerProperties.getExtension().getEnabled()) {
 
 			// if producerGroup is empty, using destination
@@ -151,19 +155,24 @@ public class RocketMQMessageChannelBinder extends
 				producer.setMaxMessageSize(
 						producerProperties.getExtension().getMaxMessageSize());
 				rocketMQTemplate.setProducer(producer);
-				rocketMQTemplate.setMessageQueueSelector(
-						Optional.ofNullable(producerProperties.getExtension().getQueueSelectorName())
-								.filter(queueSelectorName -> !StringUtils.isEmpty(queueSelectorName))
-								.map(queueSelectorName ->
-										Stream.of(getApplicationContext().getBeanNamesForType(MessageQueueSelector.class))
-												.filter(beanName -> beanName.equals(queueSelectorName))
-												.map(beanName -> getApplicationContext().getBean(beanName, MessageQueueSelector.class))
-												.findFirst()
-												.orElseThrow(() -> new RuntimeException("The queue selector bean of name '" + queueSelectorName + "' not found. Please check if the name is correct and if the bean type is MessageQueueSelector."))
-								)
-								.map(QueueOverrideMessageQueueSelector::new)
-								.orElseGet(() -> new QueueOverrideMessageQueueSelector(rocketMQTemplate.getMessageQueueSelector()))
-				);
+				if (channel instanceof AbstractMessageChannel) {
+					AbstractMessageChannel abstractMessageChannel = ((AbstractMessageChannel) channel);
+					RocketMQBindingRegistry rocketMQBindingRegistry = getApplicationContext().getBean(RocketMQBindingRegistry.class);
+					rocketMQTemplate.setMessageQueueSelector(
+							Optional.ofNullable(rocketMQBindingRegistry.getMetadata(abstractMessageChannel.getBeanName()))
+									.map(RocketMQBindingMetadata::getMessageQueueSelectorName)
+									.filter(queueSelectorName -> !StringUtils.isEmpty(queueSelectorName))
+									.map(queueSelectorName ->
+											Stream.of(getApplicationContext().getBeanNamesForType(MessageQueueSelector.class))
+													.filter(beanName -> beanName.equals(queueSelectorName))
+													.map(beanName -> getApplicationContext().getBean(beanName, MessageQueueSelector.class))
+													.findFirst()
+													.orElseThrow(() -> new RuntimeException("The queue selector bean of name '" + queueSelectorName + "' not found. Please check if the name is correct and if the bean type is MessageQueueSelector."))
+									)
+									.map(QueueOverrideMessageQueueSelector::new)
+									.orElseGet(() -> new QueueOverrideMessageQueueSelector(rocketMQTemplate.getMessageQueueSelector()))
+					);
+				}
 			}
 
 			RocketMQMessageHandler messageHandler = new RocketMQMessageHandler(
@@ -182,6 +191,11 @@ public class RocketMQMessageChannelBinder extends
 			throw new RuntimeException("Binding for channel " + destination.getName()
 					+ " has been disabled, message can't be delivered");
 		}
+	}
+
+	@Override
+	protected MessageHandler createProducerMessageHandler(ProducerDestination destination, ExtendedProducerProperties<RocketMQProducerProperties> producerProperties, MessageChannel errorChannel) throws Exception {
+		throw new UnsupportedOperationException();
 	}
 
 	@Override
