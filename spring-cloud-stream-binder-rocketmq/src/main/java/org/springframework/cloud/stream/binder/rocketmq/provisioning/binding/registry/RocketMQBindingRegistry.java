@@ -32,14 +32,12 @@ public class RocketMQBindingRegistry {
                     if (rocketMQBindingMetadata == null) {
                         rocketMQBindingMetadata = new RocketMQBindingMetadata();
                         rocketMQBindingMetadata.setBindingName(bindingName);
+                        rocketMqBindingMetadataMap.putIfAbsent(bindingName, rocketMQBindingMetadata);
                     }
                     RocketMQBindingMetadata finalRocketMQBindingMetadata = rocketMQBindingMetadata;
                     rocketMQBindingRegistries.stream()
                             .filter(rocketMQBindingRegistryProcessor -> rocketMQBindingRegistryProcessor.support(beanType))
-                            .forEach(rocketMQBindingRegistryProcessor -> {
-                                rocketMQBindingRegistryProcessor.process(beanName, finalRocketMQBindingMetadata);
-                            });
-                    rocketMqBindingMetadataMap.putIfAbsent(bindingName, finalRocketMQBindingMetadata);
+                            .forEach(rocketMQBindingRegistryProcessor -> rocketMQBindingRegistryProcessor.process(beanName, finalRocketMQBindingMetadata));
                 });
     }
 
